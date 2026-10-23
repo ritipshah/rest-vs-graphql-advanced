@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>REST vs GraphQL</title>
+  <meta name="description" content="The same Star Wars API data served as REST and as read-only GraphQL, raced side by side.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4 10h6l4 6 4-6h10' fill='none' stroke='%23e8650e' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M4 22h24' stroke='%23c2187a' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preload" href="/fonts/archivo-var.woff" as="font" type="font/woff" crossorigin>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="masthead">
+    <div class="wrap">
+      <a class="brand" href="#race" aria-label="REST vs GraphQL, home">
+        <svg width="30" height="22" viewBox="0 0 30 22" aria-hidden="true">
+          <path d="M2 6h6l4 5 4-5h12" fill="none" stroke="var(--rest)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="8" cy="6" r="2" fill="var(--rest)"/><circle cx="16" cy="6" r="2" fill="var(--rest)"/>
+          <path d="M2 17h26" stroke="var(--gql)" stroke-width="2.6" stroke-linecap="round"/>
+        </svg>
+        REST vs GraphQL
+      </a>
+      <nav class="tabs" aria-label="Views">
+        <a class="tab" href="#race">Race</a>
+        <a class="tab" href="#lab">Query lab</a>
+        <a class="tab" href="#rest">REST explorer</a>
+        <a class="tab" href="#choose">Which one?</a>
+      </nav>
+      <div class="source" id="source" data-state="unknown" role="status" aria-live="polite">
+        <span class="source-dot" aria-hidden="true"></span>
+        <span class="source-label" id="source-label">Checking data source</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- RACE: one question, every strategy, measured -->
+    <section class="view wrap" id="view-race" aria-labelledby="question">
+      <div class="chip-row scenarios" id="scenario-picker" role="group" aria-label="Question"></div>
+      <h1 class="question" id="question"></h1>
+      <p class="teaches" id="teaches"></p>
+      <div class="controls">
+        <div id="param-slot"></div>
+        <div>
+          <span class="field-label" id="network-label">Network (simulated delay per request)</span>
+          <div class="segmented" role="radiogroup" aria-labelledby="network-label" id="network"></div>
+        </div>
+        <button class="button run" id="run" type="button">Run the race</button>
+      </div>
+
+      <div class="board" aria-live="polite">
+        <div class="board-head">
+          <p class="board-title" id="board-title">Departures: one question, four routes</p>
+          <span class="board-clock" id="board-clock" aria-hidden="true"></span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Route</th>
+              <th scope="col" class="num">Requests</th>
+              <th scope="col" class="num">Round trips</th>
+              <th scope="col" class="num">Received</th>
+              <th scope="col" class="num">Time</th>
+              <th scope="col">Same answer</th>
+            </tr>
+          </thead>
+          <tbody id="board-rows"></tbody>
+        </table>
+        <p class="board-foot" id="board-foot">Press <b>Run the race</b>. Each route answers the same question against the same server and data.</p>
+      </div>
+
+      <div class="race-grid">
+        <section aria-labelledby="wf-title">
+          <h2 class="section-title" id="wf-title">How the requests travelled</h2>
+          <p class="section-note">Each bar is one HTTP request, replayed at its real timing. Shaded bands are round trips: a request in band 2 could not start until band 1 had answered. Click a bar to inspect it below.</p>
+          <div class="panel waterfall"><div class="lanes" id="lanes"><p class="empty-state">Run the race to see the timeline.</p></div></div>
+        </section>
+
+        <section aria-labelledby="xray-title">
+          <h2 class="xray-head" id="xray-title">The x-ray: what was sent versus what was used</h2>
+          <div class="xray-cols">
+            <article class="panel xray-col">
+              <header>
+                <h3>REST responses</h3>
+                <div class="legend"><span><i class="used"></i>Used</span><span><i class="unused"></i>Sent, never used</span></div>
+              </header>
+              <div class="call-list" id="call-list" aria-label="REST requests"></div>
+              <p class="call-meta" id="call-meta"></p>
+              <pre class="code" id="rest-json" tabindex="0" aria-label="Selected REST response"></pre>
+            </article>
+            <article class="panel xray-col">
+              <header><h3>GraphQL request and response</h3></header>
+              <p class="subhead">The query (what the client asked for)</p>
+              <pre class="code" id="gql-query" tabindex="0" aria-label="GraphQL query"></pre>
+              <p class="subhead">The response (exactly that shape)</p>
+              <pre class="code" id="gql-json" tabindex="0" aria-label="GraphQL response"></pre>
+            </article>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- QUERY LAB -->
+    <section class="view wrap" id="view-lab" hidden aria-labelledby="lab-title">
+      <div class="lab-intro">
+        <div>
+          <h1 class="lab-title" id="lab-title">Build a query by ticking fields</h1>
+          <p class="section-note">The tree is the schema, read live from the server. Ticking a field writes it into the query; the response has exactly that shape. Try the blocked presets to see the safety limits.</p>
+        </div>
+      </div>
+      <div class="chip-row presets" id="presets" role="group" aria-label="Example queries"></div>
+      <div class="lab-grid">
+        <section class="panel schema-panel" aria-labelledby="schema-title">
+          <div class="panel-head"><h3 id="schema-title">Schema</h3><span class="hint" id="schema-hint">loading</span></div>
+          <div class="tree" id="tree"></div>
+        </section>
+        <section class="panel" aria-labelledby="query-title">
+          <div class="panel-head"><h3 id="query-title">Query</h3><span class="hint" id="query-hint">POST /graphql</span></div>
+          <div class="editor">
+            <pre id="editor-highlight" aria-hidden="true"></pre>
+            <textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="GraphQL query"></textarea>
+          </div>
+          <details class="vars">
+            <summary>Variables (JSON)</summary>
+            <textarea id="variables" spellcheck="false" aria-label="Query variables as JSON">{}</textarea>
+          </details>
+          <div class="lab-actions">
+            <button class="button" id="lab-run" type="button">Run query</button>
+            <label class="switch"><input type="checkbox" id="loader-switch" checked> Batch with DataLoader</label>
+          </div>
+        </section>
+        <section class="panel" aria-labelledby="resp-title" aria-live="polite">
+          <div class="panel-head"><h3 id="resp-title">Response</h3><span class="hint" id="resp-hint">not run yet</span></div>
+          <div class="meters" id="meters"></div>
+          <div class="errors" id="lab-errors" hidden></div>
+          <div class="response-body"><pre class="code" id="lab-json" tabindex="0" aria-label="GraphQL response"></pre></div>
+        </section>
+      </div>
+    </section>
+
+    <!-- REST EXPLORER -->
+    <section class="view wrap" id="view-rest" hidden aria-labelledby="rest-title">
+      <div class="lab-intro">
+        <div>
+          <h1 class="lab-title" id="rest-title">Follow the links yourself</h1>
+          <p class="section-note">Every link in a REST response is another request. Click them and watch the counter: that is under-fetching, felt by hand. Then send a request twice to see HTTP caching answer with 304 and an empty body.</p>
+        </div>
+      </div>
+      <div class="explorer-grid">
+        <nav class="panel" aria-labelledby="cat-title">
+          <div class="panel-head"><h3 id="cat-title">Endpoints</h3><a class="hint" href="/openapi.json" target="_blank" rel="noopener">openapi.json</a></div>
+          <div class="catalogue" id="catalogue"></div>
+        </nav>
+        <section class="panel" aria-label="Request and response">
+          <div class="request" id="request"></div>
+          <div class="trail" id="trail"></div>
+          <div aria-live="polite">
+            <div class="response-head" id="rest-response-head"></div>
+            <div id="rest-callout"></div>
+            <details class="vars" id="rest-headers-wrap">
+              <summary>Response headers</summary>
+              <table class="headers" id="rest-headers"></table>
+            </details>
+            <pre class="code explorer-body" id="rest-body" tabindex="0" aria-label="Response body"></pre>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- WHICH ONE? -->
+    <section class="view wrap" id="view-choose" hidden aria-labelledby="choose-title">
+      <div class="choose-grid">
+        <div class="scale-wrap">
+          <h1 class="lab-title" id="choose-title">When would you still choose REST?</h1>
+          <p class="section-note">Tick what is true for your app. The scale weighs it.</p>
+          <svg class="scale" viewBox="0 0 520 300" role="img" aria-labelledby="scale-verdict">
+            <path d="M260 92 L230 270 H290 Z" fill="var(--paper-2)" stroke="var(--rule)"/>
+            <rect x="200" y="268" width="120" height="10" rx="5" fill="var(--ink)"/>
+            <g class="beam" id="beam">
+              <rect x="60" y="88" width="400" height="8" rx="4" fill="var(--ink)"/>
+              <line x1="90" y1="96" x2="60" y2="170" stroke="var(--ink-2)" stroke-width="1.5"/>
+              <line x1="90" y1="96" x2="120" y2="170" stroke="var(--ink-2)" stroke-width="1.5"/>
+              <line x1="430" y1="96" x2="400" y2="170" stroke="var(--ink-2)" stroke-width="1.5"/>
+              <line x1="430" y1="96" x2="460" y2="170" stroke="var(--ink-2)" stroke-width="1.5"/>
+              <path d="M44 170 H136 Q132 196 90 198 Q48 196 44 170 Z" fill="var(--rest)"/>
+              <path d="M384 170 H476 Q472 196 430 198 Q388 196 384 170 Z" fill="var(--gql)"/>
+              <text x="90" y="226" text-anchor="middle" font-size="17" font-weight="650" fill="var(--rest-ink)" font-family="var(--sans)">REST</text>
+              <text x="430" y="226" text-anchor="middle" font-size="17" font-weight="650" fill="var(--gql-ink)" font-family="var(--sans)">GraphQL</text>
+              <text x="90" y="186" text-anchor="middle" font-size="14" font-weight="700" fill="#fff" font-family="var(--mono)" id="rest-weight">0</text>
+              <text x="430" y="186" text-anchor="middle" font-size="14" font-weight="700" fill="#fff" font-family="var(--mono)" id="gql-weight">0</text>
+            </g>
+            <circle cx="260" cy="92" r="9" fill="var(--paper)" stroke="var(--ink)" stroke-width="3"/>
+          </svg>
+          <p class="scale-verdict" id="scale-verdict">Either works</p>
+          <p class="scale-reason" id="scale-reason">Nothing ticked yet.</p>
+        </div>
+        <ul class="factors" id="factors"></ul>
+      </div>
+      <div class="answers" id="answers"></div>
+    </section>
+  </main>
+
+  <footer class="site-foot">
+    <div class="wrap">
+      <span>Data: <a href="https://swapi.dev/" target="_blank" rel="noopener">SWAPI</a>, cached and rate-limited, with an offline snapshot.</span>
+      <span>REST at <a href="/api/">/api</a>, GraphQL at /graphql, OpenAPI at <a href="/openapi.json">/openapi.json</a></span>
+    </div>
+  </footer>
+
+  <script type="module" src="/js/main.mjs"></script>
+</body>
+</html>

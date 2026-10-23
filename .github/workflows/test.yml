@@ -1,0 +1,23 @@
+# Runs on every push and pull request: install, run all tests (offline, never touches
+# swapi.dev), then start the server offline and run the comparison script as a smoke test.
+name: test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Comparison smoke test
+        run: |
+          node src/server.js --offline &
+          sleep 2
+          npm run compare -- --scenario=card
