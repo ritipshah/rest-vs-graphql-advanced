@@ -10,6 +10,7 @@ const { simulatedLatency, rateLimit } = require('./middleware');
 
 function createApp({ rateLimitPerMinute = config.rateLimitPerMinute } = {}) {
   const app = express();
+  app.set('trust proxy', 1); // Render's proxy handles HTTPS; read the real protocol and client IP from it
   app.disable('x-powered-by');
   app.use(requestContext.middleware); // per-request counters (see requestContext.js)
   app.use(express.static(path.join(__dirname, '..', 'public')));
